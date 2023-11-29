@@ -12,16 +12,15 @@ def parse_arguments() -> argparse.Namespace:
     args = parser.parse_args()
     return args
 
-
 def main():
     args = parse_arguments()
     frame_width, frame_height = args.webcam_resolution
     cap = cv2.VideoCapture(1)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,frame_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT,frame_height)
-    
-    model = YOLO("yolov8n.pt")
-    
+    model = YOLO("yolov8x.pt")
+    # Move the model to the appropriate device (e.g., CUDA/GPU or CPU)
+
     box_annotator = sv.BoxAnnotator(thickness=2,text_thickness=2,text_scale=1)
 
     zone = sv.PolygonZone(polygon=ZONE_POLYGON,frame_resolution_wh=tuple(args.webcam_resolution))
@@ -32,7 +31,7 @@ def main():
         if not ret:
            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
            continue
-        result = model(frame,agnostic_nms=True)[0]
+        result = model(frame)[0]
         detections = sv.Detections.from_ultralytics(result)
         labels = [f"{model.model.names[class_id]} confidence:{confidence}" for _,
               _, confidence, class_id,  _ in detections]
@@ -44,6 +43,6 @@ def main():
         
         if(cv2.waitKey(30)==27):
             break
-    
+
 if __name__ == '__main__':
     main()
