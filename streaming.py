@@ -1,10 +1,10 @@
+import torch
 from ultralytics import YOLO
 import cv2
 import argparse
 import supervision as sv
 import numpy as np
-
-ZONE_POLYGON= np.array([[0,0],[1280//2,0],[1280//2,720//2],[0,720//2]])
+from ultralytics.utils.plotting import Annotator  # ultralytics.yolo.utils.plotting
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='YOLOv8 live')
@@ -18,31 +18,34 @@ def main():
     cap = cv2.VideoCapture(1)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,frame_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT,frame_height)
-    model = YOLO("yolov8x.pt")
-    # Move the model to the appropriate device (e.g., CUDA/GPU or CPU)
-
-    box_annotator = sv.BoxAnnotator(thickness=2,text_thickness=2,text_scale=1)
-
-    zone = sv.PolygonZone(polygon=ZONE_POLYGON,frame_resolution_wh=tuple(args.webcam_resolution))
-    zone_annotator = sv.PolygonZoneAnnotator(zone=zone,color=sv.Color.red(),thickness=2,text_thickness=4,text_scale=2)
+    model = YOLO("runs/detect/yolov8x_ppe_css_100_epochs/weights/best.pt")
 
     while True:
         ret,frame = cap.read()
         if not ret:
            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
            continue
-        result = model(frame)[0]
-        detections = sv.Detections.from_ultralytics(result)
-        labels = [f"{model.model.names[class_id]} confidence:{confidence}" for _,
-              _, confidence, class_id,  _ in detections]
-        frame = box_annotator.annotate(scene=frame,detections=detections ,labels= labels)
-        zone.trigger(detections=detections)
-        frame=zone_annotator.annotate(scene=frame)
+        results = model(frame)[0]
 
-        cv2.imshow('yolov8',frame)
+        for r in results:
+            print(r.probs)
+            annotator = Annotator(frame)
+        
+            boxes = r.boxes
+            for box in boxes:
+                b = box.xyxy[0]  # get box coordinates in (top, left, bottom, right) format
+                c = box.cls
+                annotator.box_label(b, model.names[int(c)])
+                #stream here to a streaming databse 
+                print(model.names[int(c)])
+            frame = annotator.result()  
+            cv2.imshow('yolov8',frame)
         
         if(cv2.waitKey(30)==27):
             break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
